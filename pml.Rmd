@@ -1,0 +1,125 @@
+---
+title: "Practical Machine Learning"
+output:
+  html_document:
+    keep_md: yes
+    toc: yes
+---
+
+```{r echo=FALSE, message=FALSE}
+setwd("C:/Users/Administrator/Git/DataScienceCoursera/08. Practical Machine Learning")
+```
+
+## Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+```{r, cache = T}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(corrplot)
+```
+
+### Downloading
+```{r, cache = T}
+srcTrainingData <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+srcTestingData <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+fTrainingData <- "./data/pml-training.csv"
+fTestingData  <- "./data/pml-testing.csv"
+if (!file.exists("./data")) {
+  dir.create("./data")
+}
+if (!file.exists(fTrainingData)) {
+  download.file(srcTrainingData, destfile=fTrainingData)
+}
+if (!file.exists(fTestingData)) {
+  download.file(srcTestingData, destfile=fTestingData)
+}
+```  
+### Reading
+```{r, cache = T}
+TrainingData <- read.csv("./data/pml-training.csv")
+TestingData <- read.csv("./data/pml-testing.csv")
+dim(TrainingData)
+dim(TestingData)
+```
+
+Variable CLASSE in the training data will be predicted.
+
+### Preprocessing
+```{r, cache = T}
+sum(complete.cases(TrainingData))
+```
+
+
+```{r, cache = T}
+TrainingData <- TrainingData[, colSums(is.na(TrainingData)) == 0] 
+TestingData <- TestingData[, colSums(is.na(TestingData)) == 0] 
+```  
+
+```{r, cache = T}
+classe <- TrainingData$classe
+trainingProcessed1 <- grepl("^X|timestamp|window", names(TrainingData))
+TrainingData <- TrainingData[, !trainingProcessed1]
+trainingProcessed2 <- TrainingData[, sapply(TrainingData, is.numeric)]
+trainingProcessed2$classe <- classe
+testingProcessed <- grepl("^X|timestamp|window", names(TestingData))
+TestingData <- TestingData[, !testingProcessed]
+testingProcessed2 <- TestingData[, sapply(TestingData, is.numeric)]
+```
+
+### Separation
+Data will be seperated into 70% for Training and 30% for Validation
+
+```{r, cache = T}
+set.seed(4242) # For reproducibile purpose
+TrainingData3 <- createDataPartition(trainingProcessed2$classe, p=0.70, list=F)
+TrainingData2 <- trainingProcessed2[TrainingData3, ]
+TestingData2 <- trainingProcessed2[-TrainingData3, ]
+```
+
+## Prediction
+
+### Random Forrest
+
+Using the Random Forest model to predict activity
+```{r, cache = T}
+RandomForrest1 <- trainControl(method="cv", 5)
+RandomForrest2 <- train(classe ~ ., data=TrainingData2, method="rf", trControl=RandomForrest1, ntree=250)
+RandomForrest2
+```
+
+### Performance estimation
+Estimation of performance against Validation data.  
+
+```{r, cache = T}
+RandomForrest3 <- predict(RandomForrest2, TestingData2)
+confusionMatrix(TestingData2$classe, RandomForrest3)
+```
+```{r, cache = T}
+RandomForrestAccuracy <- postResample(RandomForrest3, TestingData2$classe)
+RandomForrestAccuracy
+RandomForrestError <- 1 - as.numeric(confusionMatrix(TestingData2$classe, RandomForrest3)$overall[1])
+RandomForrestError
+```
+
+### Estimation results
+Estimated accuracy: 99.38%
+Estimated out-of-sample error: 0.62%.
+
+
+### Prediction against Test Data 
+Using the prediction model against the Test data
+
+```{r, cache = T}
+RandomForrestPrediction <- predict(RandomForrest2, testingProcessed2[, -length(names(testingProcessed2))])
+RandomForrestPrediction
+```  
+
+## Correlation Matrix
+```{r, cache = T}
+RandomForrestMatrix <- cor(TrainingData2[, -length(names(TrainingData2))])
+corrplot(RandomForrestMatrix, method="circle")
+```
