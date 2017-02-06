@@ -7,7 +7,7 @@ output:
 ---
 
 ```{r echo=FALSE, message=FALSE}
-setwd("C:/Users/Administrator/Git/DataScienceCoursera/08. Practical Machine Learning")
+setwd("C:/Users/Administrator/Git/DataScienceCoursera/Practical Machine Learning")
 ```
 
 ## Introduction
